@@ -30,20 +30,17 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
     // inp += offset;
     // return 0; 
 
-    //Disco --> memoria
-    // Inode: 32 bytes. 16 inodes por bloque (512 bytes). 16 inodes por bloque.
-    int sector = (INODE_START_SECTOR  + (int)((inumber - 1) / 16));
-    int fd = fs->dfd;
     void *buff= malloc(DISKIMG_SECTOR_SIZE);
     if (buff == NULL) {
         return -1;
     }
-    if (diskimg_readsector(fd, sector,  buff) == -1) {
+    if (diskimg_readsector(fs->dfd, INODE_START_SECTOR + (inumber - 1) / 16, buff) == -1) {
         return -1;
     }
-    memcpy(inp, buff + (int)((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
+    // memcpy(inp, buff + ((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
+    *inp = ((struct inode *) buff)[(inumber - 1) % 16];
     free(buff);
-    return 0; 
+    return 0;
 }
 
 
@@ -124,35 +121,54 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
 //     }
 // }
 
-int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum) {  
-    int small_file = ((inp->i_mode & ILARG) == 0);
-    if (small_file) {            
+int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum) {
+    int fd = fs->dfd;
+    int is_small_file = ((inp->i_mode & ILARG) == 0);
+
+    // if it is a small file
+    if (is_small_file) {
         if (blockNum < 7) {
             return inp->i_addr[blockNum];
         } else {
-            return -1;
-        }
-    } else {
-        if (blockNum < 7) {
-            return inp->i_addr[blockNum];
-        } else {
-            int indirect_block_index = inp->i_addr[7];  // El octavo bloque es el puntero indirecto
-            void *buff = malloc(DISKIMG_SECTOR_SIZE);
-            if (buff == NULL) {
-                return -1;
-            }
-            if (diskimg_readsector(fs->dfd, indirect_block_index, buff) == -1) {
-                free(buff);
-                return -1;
-            }
-            int block_offset = blockNum - 7;
-            int block = ((int *)buff)[block_offset];
-            free(buff);
-            return block;
+            return -1; // Block number out of range for small files
         }
     }
-}
 
+    // if it is a large file
+    int addr_num = DISKIMG_SECTOR_SIZE / sizeof(uint16_t);
+    int indir_addr_num = addr_num * 7;
+
+    if (blockNum < indir_addr_num) {  // if it only uses single indirect addressing
+        int sector_offset = blockNum / addr_num;
+        int addr_offset = blockNum % addr_num;
+        uint16_t addrs[addr_num];
+        
+        if (diskimg_readsector(fd, inp->i_addr[sector_offset], addrs) < 0) {
+            return -1;
+        }
+        return addrs[addr_offset];
+    } else {  // if it also uses double indirect addressing
+        // the first layer
+        int blockNum_in_double = blockNum - indir_addr_num;
+        int sector_offset_1 = 7;
+        int addr_offset_1 = blockNum_in_double / addr_num;
+        uint16_t addrs_1[addr_num];
+        
+        if (diskimg_readsector(fd, inp->i_addr[sector_offset_1], addrs_1) < 0) {
+            return -1;
+        }
+
+        // the second layer
+        int sector_2 = addrs_1[addr_offset_1];
+        int addr_offset_2 = blockNum_in_double % addr_num;
+        uint16_t addrs_2[addr_num];
+        
+        if (diskimg_readsector(fd, sector_2, addrs_2) < 0) {
+            return -1;
+        }
+        return addrs_2[addr_offset_2];
+    }
+}
 
 int inode_getsize(struct inode *inp) {
   return ((inp->i_size0 << 16) | inp->i_size1);  // devuelve la cantidad de bytes que tiene el archivo 
