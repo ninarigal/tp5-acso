@@ -69,8 +69,9 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
             free(buff);
             return -1;
         }
-        uint16_t *table = (uint16_t *)buff;
-        int block_number = table[blockNum % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t))];
+        int second_block_num = blockNum % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t));
+        // uint16_t *table = (uint16_t *)buff;
+        int block_number = ((uint16_t *)buff)[second_block_num];
         free(buff);
         return block_number;
    
@@ -84,21 +85,21 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
             free(buff_1);
             return -1;
         }
-        uint16_t *table_1 = (uint16_t *)buff_1; 
+        // uint16_t *table_1 = (uint16_t *)buff_1; 
         void *buff_2= malloc(DISKIMG_SECTOR_SIZE);
         if (buff_2 == NULL) {
             free(buff_1);
             return -1;
         }
         int sec_block_num = (blockNum - (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) / (DISKIMG_SECTOR_SIZE / sizeof(uint16_t));
-        if (diskimg_readsector(fs->dfd, table_1[sec_block_num], buff_2) == -1) {
+        if (diskimg_readsector(fs->dfd, ((uint16_t *)buff_1)[sec_block_num], buff_2) == -1) {
             free(buff_1);
             free(buff_2);
             return -1;
         }
-        uint16_t *table_2 = (uint16_t *)buff_2;
+        // uint16_t *table_2 = (uint16_t *)buff_2;
         int third_block_num = (blockNum - (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t));
-        int block_number = table_2[third_block_num];
+        int block_number = ((uint16_t *)buff_2)[third_block_num];
         free(buff_1);
         free(buff_2);
         return block_number;
