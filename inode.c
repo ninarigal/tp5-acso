@@ -9,29 +9,61 @@
 /**
  * TODO
  */
-int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
-    //Implement Code Here
-    // quiero leer el inode que me pasan 
-    // inumber es el numero de inode 
-    // inp es donde quiero escribir -> meter el inode (es alocado afuera no tenes que liberar)
-    // inodes empiezan desde el 2 
-    // cuenta para obtener el numero de sector, leerlo y guardarlo en imp -> obtener el contenido del inumber q me pasan
-    // por sector entran 16 inodes
+// int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
+//     //Implement Code Here
+//     // quiero leer el inode que me pasan 
+//     // inumber es el numero de inode 
+//     // inp es donde quiero escribir -> meter el inode (es alocado afuera no tenes que liberar)
+//     // inodes empiezan desde el 2 
+//     // cuenta para obtener el numero de sector, leerlo y guardarlo en imp -> obtener el contenido del inumber q me pasan
+//     // por sector entran 16 inodes
 
-    void *buff= malloc(DISKIMG_SECTOR_SIZE);
-    if (buff == NULL) {
-        return -1;
+//     void *buff= malloc(DISKIMG_SECTOR_SIZE);
+//     if (buff == NULL) {
+//         return -1;
+//     }
+//     if (diskimg_readsector(fs->dfd, INODE_START_SECTOR + (inumber - 1) / ( DISKIMG_SECTOR_SIZE / sizeof(struct inode)), buff) == -1) {
+//         free(buff);
+//         return -1;
+//     }
+//     memcpy(inp, buff + ((inumber - 1) % (DISKIMG_SECTOR_SIZE / sizeof(struct inode))) * sizeof(struct inode), sizeof(struct inode));
+//     // memcpy(inp, buff + ((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
+//     // *inp = ((struct inode *) buff)[(inumber - 1) % 16];
+//     free(buff);
+//     return 0;
+// }
+int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
+    // Validación de parámetros de entrada
+    if (fs == NULL || inp == NULL || inumber <= 0) {
+        return -1; // Parámetros inválidos
     }
-    if (diskimg_readsector(fs->dfd, INODE_START_SECTOR + (inumber - 1) / ( DISKIMG_SECTOR_SIZE / sizeof(struct inode)), buff) == -1) {
-        free(buff);
-        return -1;
+
+    // Tamaño del sector y número de inodos por sector
+    int inodes_per_sector = DISKIMG_SECTOR_SIZE / sizeof(struct inode);
+    int sector_num = INODE_START_SECTOR + (inumber - 1) / inodes_per_sector;
+    int inode_offset = (inumber - 1) % inodes_per_sector;
+
+    // Reservar memoria para el buffer
+    void *buffer = malloc(DISKIMG_SECTOR_SIZE);
+    if (buffer == NULL) {
+        return -1; // Error en la asignación de memoria
     }
-    memcpy(inp, buff + ((inumber - 1) % (DISKIMG_SECTOR_SIZE / sizeof(struct inode))) * sizeof(struct inode), sizeof(struct inode));
-    // memcpy(inp, buff + ((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
-    // *inp = ((struct inode *) buff)[(inumber - 1) % 16];
-    free(buff);
-    return 0;
+
+    // Leer el sector correspondiente del disco
+    if (diskimg_readsector(fs->dfd, sector_num, buffer) == -1) {
+        free(buffer);
+        return -1; // Error en la lectura del disco
+    }
+
+    // Copiar el inodo específico al destino proporcionado
+    memcpy(inp, (struct inode *)buffer + inode_offset, sizeof(struct inode));
+
+    // Liberar el buffer
+    free(buffer);
+
+    return 0; // Éxito
 }
+
 
 
 /**
