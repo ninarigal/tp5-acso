@@ -37,8 +37,8 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
     if (diskimg_readsector(fs->dfd, INODE_START_SECTOR + (inumber - 1) / 16, buff) == -1) {
         return -1;
     }
-    memcpy(inp, buff + ((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
-    // *inp = ((struct inode *) buff)[(inumber - 1) % 16];
+    // memcpy(inp, buff + ((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
+    *inp = ((struct inode *) buff)[(inumber - 1) % 16];
     free(buff);
     return 0;
 }
