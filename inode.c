@@ -58,7 +58,8 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
 
     // large file
     
-    if (blockNum < (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) { // 512 / 2 * 7 (entran 256 bloques por sector) -> esta en los primeros 7 (1er nivel de indireccionamiento)
+    int first_indir_bytes = (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7;
+    if (blockNum < first_indir_bytes) { // 512 / 2 * 7 (entran 256 bloques por sector) -> esta en los primeros 7 (1er nivel de indireccionamiento)
         int first_block_num = blockNum / (DISKIMG_SECTOR_SIZE / sizeof(uint16_t));     
         void *buff= malloc(DISKIMG_SECTOR_SIZE);
         if (buff == NULL) {
