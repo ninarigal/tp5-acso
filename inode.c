@@ -158,7 +158,7 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
         if (diskimg_readsector(fs->dfd, block[sectorNum], buff) == -1) {
             return -1;
         }
-        int block_number = block[(blockNum - (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)];
+        int block_number = block[(blockNum - (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t))];
         free(buff);
         return block_number;
     }
