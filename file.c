@@ -42,32 +42,27 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
     // } else {
     //     return total_size % DISKIMG_SECTOR_SIZE;
     // }
-    struct inode *inp = malloc(sizeof(struct inode));
-    if (inp == NULL) {
-        return -1;
-    }
-    if (inode_iget(fs, inumber, inp) == -1) {
-        free(inp);
-        return -1;
-    }
-    int block = inode_indexlookup(fs, inp, blockNum); // Nos da el numero REAL del bloque en el disco
-    if (block == -1) {
-        free(inp);
-        return -1;
-    }
-    int fd = fs->dfd;
-    if (diskimg_readsector(fd, block, buf) == -1) {
-        free(inp);
-        return -1;
-    }
-    // Ahora quiero la cantidad de bytes validos en el bloque
-    int size = inode_getsize(inp); 
-    free(inp);
-    int inode_blocks = size / DISKIMG_SECTOR_SIZE; // Cantidad de bloques que tiene el archivo
-    if (blockNum < inode_blocks - 1) { // Si es uno de los bloques del medio, usa todos los bytes
-        return DISKIMG_SECTOR_SIZE;
-    } else{
-        return size % DISKIMG_SECTOR_SIZE; // Si es el ultimo bloque, no usa todos los bytes.
-    }
+    // get inode content
+	struct inode my_inode;
+	int err = inode_iget(fs, inumber, &my_inode);
+	if(err < 0) return -1;
+
+	// get true block num
+	int sector = inode_indexlookup(fs, &my_inode, blockNum);
+	if(sector < 0) return -1;
+
+	// get block content
+	int read_err = diskimg_readsector(fs->dfd, sector, buf);
+	if(read_err < 0) return -1;
+
+	// get bytes and blocks
+	int total_bytes = inode_getsize(&my_inode);
+	if(total_bytes < 0) return -1;
+	int total_blocks = total_bytes / DISKIMG_SECTOR_SIZE;
+	if(blockNum == total_blocks) {
+		return total_bytes % DISKIMG_SECTOR_SIZE;
+	} else {
+		return DISKIMG_SECTOR_SIZE;
+	}
 }
 
