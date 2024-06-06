@@ -33,35 +33,17 @@
 //     return 0;
 // }
 int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
-    // Validación de parámetros de entrada
-    if (fs == NULL || inp == NULL || inumber <= 0) {
-        return -1; // Parámetros inválidos
+    void *buff= malloc(DISKIMG_SECTOR_SIZE);
+    if (buff == NULL) {
+        return -1;
     }
-
-    // Tamaño del sector y número de inodos por sector
-    int inodes_per_sector = DISKIMG_SECTOR_SIZE / sizeof(struct inode);
-    int sector_num = INODE_START_SECTOR + (inumber - 1) / inodes_per_sector;
-    int inode_offset = (inumber - 1) % inodes_per_sector;
-
-    // Reservar memoria para el buffer
-    void *buffer = malloc(DISKIMG_SECTOR_SIZE);
-    if (buffer == NULL) {
-        return -1; // Error en la asignación de memoria
+    if (diskimg_readsector(fs->dfd, INODE_START_SECTOR + (inumber - 1) / 16, buff) == -1) {
+        return -1;
     }
-
-    // Leer el sector correspondiente del disco
-    if (diskimg_readsector(fs->dfd, sector_num, buffer) == -1) {
-        free(buffer);
-        return -1; // Error en la lectura del disco
-    }
-
-    // Copiar el inodo específico al destino proporcionado
-    memcpy(inp, (struct inode *)buffer + inode_offset, sizeof(struct inode));
-
-    // Liberar el buffer
-    free(buffer);
-
-    return 0; // Éxito
+    memcpy(inp, buff + ((inumber - 1) % 16) * sizeof(struct inode), sizeof(struct inode));
+    // *inp = ((struct inode *) buff)[(inumber - 1) % 16];
+    free(buff);
+    return 0;
 }
 
 
@@ -139,83 +121,44 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
     
 // }
 int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum) {
-    // Determine if the file is small or large
-    int is_small_file = ((inp->i_mode & ILARG) == 0);
-    
-    if (is_small_file) {
-        // Small file: Direct addressing for the first 7 blocks
+    int small_file = ((inp->i_mode & ILARG) == 0);
+    if (small_file) {
         if (blockNum < 7) {
             return inp->i_addr[blockNum];
         } else {
-            return -1;  // Block number out of range for small file
+            return -1;
         }
     }
 
-    // Large file handling
-    int blocks_per_sector = DISKIMG_SECTOR_SIZE / sizeof(uint16_t);
-    int first_indirect_limit = blocks_per_sector * 7;
-
-    if (blockNum < first_indirect_limit) {
-        // First level of indirection
-        int indir_index = blockNum / blocks_per_sector;
-        int offset = blockNum % blocks_per_sector;
-
-        // Allocate buffer for sector read
-        void *buffer = malloc(DISKIMG_SECTOR_SIZE);
-        if (buffer == NULL) {
-            return -1;  // Memory allocation failed
+    if (blockNum < (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) { // 512 / 2 * 7 (entran 256 bloques por sector) -> esta en los primeros 7 (1er nivel de indireccionamiento)
+        int sectorNum = blockNum / (DISKIMG_SECTOR_SIZE / sizeof(uint16_t));     
+        void *buff= malloc(DISKIMG_SECTOR_SIZE);
+        if (buff == NULL) {
+            return -1;
         }
-
-        // Read the indirect block
-        if (diskimg_readsector(fs->dfd, inp->i_addr[indir_index], buffer) == -1) {
-            free(buffer);
-            return -1;  // Disk read failed
+        if (diskimg_readsector(fs->dfd, inp->i_addr[sectorNum], buff) == -1) {
+            return -1;
         }
-
-        // Retrieve the block number from the indirect block
-        int block_number = ((uint16_t *)buffer)[offset];
-        free(buffer);
+        uint16_t *block = (uint16_t *)buff;
+        int block_number = block[blockNum % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t))];
+        free(buff);
         return block_number;
-
-    } else {
-        // Second level of indirection
-        int second_level_start = first_indirect_limit;
-        int indir_index = 7;
-        
-        // Allocate buffer for first level indirect block
-        void *buffer_1 = malloc(DISKIMG_SECTOR_SIZE);
-        if (buffer_1 == NULL) {
-            return -1;  // Memory allocation failed
+   
+    } else { // sino hay dos niveles de indireccionamiento
+        int sectorNum = 7 + (blockNum - (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) / (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)); // 7 + (bloque - 512) / 256
+        void *buff= malloc(DISKIMG_SECTOR_SIZE);
+        if (buff == NULL) {
+            return -1;
         }
-
-        // Read the first level indirect block
-        if (diskimg_readsector(fs->dfd, inp->i_addr[indir_index], buffer_1) == -1) {
-            free(buffer_1);
-            return -1;  // Disk read failed
+        if (diskimg_readsector(fs->dfd, inp->i_addr[7], buff) == -1) {
+            return -1;
         }
-
-        // Calculate indices for second level
-        int second_indir_index = (blockNum - second_level_start) / blocks_per_sector;
-        int offset = (blockNum - second_level_start) % blocks_per_sector;
-
-        // Allocate buffer for second level indirect block
-        void *buffer_2 = malloc(DISKIMG_SECTOR_SIZE);
-        if (buffer_2 == NULL) {
-            free(buffer_1);
-            return -1;  // Memory allocation failed
+        uint16_t *block = (uint16_t *)buff;
+        if (diskimg_readsector(fs->dfd, block[sectorNum], buff) == -1) {
+            return -1;
         }
-
-        // Read the second level indirect block
-        if (diskimg_readsector(fs->dfd, ((uint16_t *)buffer_1)[second_indir_index], buffer_2) == -1) {
-            free(buffer_1);
-            free(buffer_2);
-            return -1;  // Disk read failed
-        }
-
-        // Retrieve the block number from the second level indirect block
-        int block_number = ((uint16_t *)buffer_2)[offset];
-        free(buffer_1);
-        free(buffer_2);
+        int block_number = block[(blockNum - (DISKIMG_SECTOR_SIZE / sizeof(uint16_t)) * 7) % (DISKIMG_SECTOR_SIZE / sizeof(uint16_t))];
+        free(buff);
         return block_number;
     }
 }
