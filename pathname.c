@@ -12,34 +12,28 @@
  * TODO
  */
 int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
-    //Implement code here
-    // me dan un absolut path (desde root) 
-    // no hay que manejar el caso de // -> linux lo maneja como una /
-    // se que el inode del ROOT es el 1 --> adentro del uno busco usr -> adentro de usr busco bin -> adentro de bin busco bash -> buscas los dirents usando la funcion de los dirents (para el ejemplo /usr/bin/bash)
-    // devolves el inumber del dirent de bash
-    char *pathname_ = strdup(pathname);
+    char *pathname_ = strdup(pathname); 
     if (pathname_ == NULL) {
         return -1;
     }
-    char *dir = strtok(pathname_, "/");
-    int inumber = 1; // El inode del root es 1
+    char *directory = strtok(pathname_, "/"); // split the pathname by "/"
+    int inumber = 1; // root inode is 1
     struct direntv6* dirent = malloc(sizeof(struct direntv6));
     if (dirent == NULL) {
         free(pathname_);
         return -1;
     }
-    while (dir != NULL) {
-        int found = directory_findname(fs, dir, inumber, dirent);
-        if (found == -1) {
+    while (directory != NULL) { // while there are directories to read
+        if (directory_findname(fs, directory, inumber, dirent) == -1) {
             free(pathname_);
             free(dirent);
             return -1;
         }
-        inumber = dirent->d_inumber;
-        dir = strtok(NULL, "/");
+        inumber = dirent->d_inumber; // update the inumber
+        directory = strtok(NULL, "/"); // read the next directory
     }
     free(pathname_);
     free(dirent);
-    return inumber;
+    return inumber; // return the inumber of the last directory
 }
 
