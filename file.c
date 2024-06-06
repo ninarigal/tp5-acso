@@ -31,6 +31,7 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
         free(inp);
         return -1;
     }
+    free(inp);
     int blocks = total_size / DISKIMG_SECTOR_SIZE; // number of blocks of the file
     if (blockNum < blocks) { 
         return DISKIMG_SECTOR_SIZE; // if not last block, return full size
