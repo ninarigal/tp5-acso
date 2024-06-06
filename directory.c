@@ -41,37 +41,60 @@ int directory_findname(struct unixfilesystem *fs, const char *name, int dirinumb
     return -1;
   }
   for (int i = 0; i < blocks; i++) {
-    int valid_bytes = file_getblock(fs, dirinumber, i, buff); // save in buff the content of the directory specified
-    if (valid_bytes == -1) { 
-      free(inp);
-      free(buff);
-      return -1;
+        int valid_bytes = file_getblock(fs, dirinumber, i, buff); // save in buff the content of the directory specified
+        if (valid_bytes == -1) { 
+            free(inp);
+            free(buff);
+            return -1;
+        }
+        int dirents = valid_bytes / dirent_size; 
+        for (int j = 0; j < dirents; j++) {
+            struct direntv6 *dirent_j = (struct direntv6 *)(buff + j * dirent_size);
+            if (strcmp(dirent_j->d_name, name) == 0) {
+                memcpy(dirEnt, dirent_j, dirent_size);
+                free(inp);
+                free(buff);
+                return 0;
+            }
+        }
     }
-    int dirents = valid_bytes / dirent_size; 
-    struct direntv6* dirent = malloc(sizeof(struct direntv6));
-    if (dirent == NULL) {
-      free(inp);
-      free(buff);
-      return -1;
-    }
-    for (int j = 0; j < dirents ; j++) {
-      memcpy(dirent, buff + j * dirent_size, dirent_size);
-      if (strcmp(dirent->d_name, name) == 0) {
-        memcpy(dirEnt, dirent, dirent_size);
-        free(inp);
-        free(buff);
-        free(dirent);
-        return 0;
-      }
-      
-    }
-    free(dirent);
-  }
-  free(buff);
-  free(inp);
-  
-  return -1;
+    free(buff);
+    free(inp);
+    return -1;
 }
+//   for (int i = 0; i < blocks; i++) {
+//     int valid_bytes = file_getblock(fs, dirinumber, i, buff); // save in buff the content of the directory specified
+//     if (valid_bytes == -1) { 
+//       free(inp);
+//       free(buff);
+//       return -1;
+//     }
+//     int dirents = valid_bytes / dirent_size; 
+//     struct direntv6* dirent = malloc(sizeof(struct direntv6));
+//     if (dirent == NULL) {
+//       free(inp);
+//       free(buff);
+//       return -1;
+//     }
+//     for (int j = 0; j < dirents ; j++) {
+//       memcpy(dirent, buff + j * dirent_size, dirent_size);
+//       if (strcmp(dirent->d_name, name) == 0) {
+//         memcpy(dirEnt, dirent, dirent_size);
+//         free(inp);
+//         free(buff);
+//         free(dirent);
+//         return 0;
+//       }
+      
+//     }
+//     free(dirent);
+//   }
+//   free(buff);
+//   free(inp);
+  
+//   return -1;
+// }
+  
 
 
 //       struct direntv6 dirent_j = ((struct direntv6*) buff)[j]; // agarro el dirent j del bloque i
