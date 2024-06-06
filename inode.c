@@ -14,7 +14,7 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
     if (buff == NULL) {
         return -1;
     }
-    int blocks_per_sector = DISKIMG_SECTOR_SIZE / sizeof(uint16_t); // 256
+    int blocks_per_sector = DISKIMG_SECTOR_SIZE / sizeof(struct inode); // 256
     int real_inumber = inumber - 1; // real inumber (index starts from 0)
     int sectorNum = INODE_START_SECTOR + real_inumber / blocks_per_sector; 
     if (diskimg_readsector(fs->dfd, sectorNum, buff) == -1) { // read the sector where the inode is
