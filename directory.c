@@ -74,29 +74,25 @@ int directory_findname(struct unixfilesystem *fs, const char *name, int dirinumb
   if (inp == NULL) {
     return -1;
   }
-  if (inode_iget(fs, dirinumber, inp) == -1) { // Busco el inode que le corresponde a este directorio (al directorio con el numero dirinumber)
+  if (inode_iget(fs, dirinumber, inp) == -1) { // look for the inode corresponding to the dirinumber
     free(inp);
     return -1;
   }
-  // checkeo que efectivamente sea un directorio
-  int is_dir = ((inp->i_mode & IFMT) == IFDIR);
-  if (!is_dir) {
+  int is_directory = ((inp->i_mode & IFMT) == IFDIR); // check if it is a directory
+  if (!is_directory) {
     free(inp);
     return -1;
   }
-  int size = inode_getsize(inp);
-  if(size <= 0) {
+  int total_size = inode_getsize(inp);
+  if(total_size <= 0) {
     free(inp);
     return -1;
   }
-
-  int complete_blocks = size/DISKIMG_SECTOR_SIZE; // un bloque tiene 512 bytes, que representan 256 numeros de bloques. Esto me da la cantidad de bloques completos que tiene el archivo.
-  int blocknums_in_last_block = size % DISKIMG_SECTOR_SIZE; // me fijo si hay un ultimo bloque que no esta completo
-
-  if (blocknums_in_last_block != 0) {  // Si hay uno, aunque no este lleno lo tengo que agregar
-    complete_blocks++;
+  int blocks = total_size / DISKIMG_SECTOR_SIZE; // number of blocks
+  int last_block = total_size % DISKIMG_SECTOR_SIZE; // number of bytes in the last block
+  if (last_block != 0) {
+    blocks++;
   }
-  int blocks = complete_blocks; // La cantidad de bloques que tiene el archivo
 
   int dirent_size = sizeof(struct direntv6);
   void* buff = malloc(DISKIMG_SECTOR_SIZE);
@@ -104,28 +100,48 @@ int directory_findname(struct unixfilesystem *fs, const char *name, int dirinumb
     free(inp);
     return -1;
   }
-  int fd = fs->dfd;
-  // vamos por cada bloque
   for (int i = 0; i < blocks; i++) {
-    int valid_bytes = file_getblock(fs, dirinumber, i, buff); // guardamos en buff el contenido del directorio que me especificaron (con dirinumber)
-    if (valid_bytes == -1) { // si no se pudo leer el bloque, devuelvo error
+    int valid_bytes = file_getblock(fs, dirinumber, i, buff); // save in buff the content of the directory specified
+    if (valid_bytes == -1) { 
       free(inp);
       free(buff);
       return -1;
     }
-    int dirents = valid_bytes/dirent_size; // la cantidad de dirents que tiene el bloque
+    int dirents = valid_bytes / dirent_size; 
     for (int j = 0; j < dirents ; j++) {
-      struct direntv6 dirent_j = ((struct direntv6*) buff)[j]; // agarro el dirent j del bloque i
-      if (strcmp(dirent_j.d_name, name) == 0) {
-        memcpy(dirEnt, &dirent_j, dirent_size);
+      struct direntv6* dirent_j = malloc(sizeof(struct direntv6));
+      if (dirent_j == NULL) {
         free(inp);
         free(buff);
+        return -1;
+      }
+      memcpy(dirent_j, buff + j * dirent_size, dirent_size);
+      if (strcmp(dirent_j->d_name, name) == 0) {
+        memcpy(dirEnt, dirent_j, dirent_size);
+        free(inp);
+        free(buff);
+        free(dirent_j);
         return 0;
       }
+      free(dirent_j);
     }
   }
-  // Si no lo encontro en ningun dirent, devuelvo error
   free(buff);
   free(inp);
   return -1;
 }
+
+
+//       struct direntv6 dirent_j = ((struct direntv6*) buff)[j]; // agarro el dirent j del bloque i
+//       if (strcmp(dirent_j.d_name, name) == 0) {
+//         memcpy(dirEnt, &dirent_j, dirent_size);
+//         free(inp);
+//         free(buff);
+//         return 0;
+//       }
+//     }
+//   }
+//   free(buff);
+//   free(inp);
+//   return -1;
+// }
