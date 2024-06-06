@@ -88,10 +88,15 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
         return -1;
     }
     int blocks = total_size / DISKIMG_SECTOR_SIZE;
-    if (blockNum == blocks) {
-        return total_size % DISKIMG_SECTOR_SIZE;
-    } else {
+    // if (blockNum == blocks) {
+    //     return total_size % DISKIMG_SECTOR_SIZE;
+    // } else {
+    //     return DISKIMG_SECTOR_SIZE;
+    // }
+    if (blockNum < blocks) { // Si es uno de los bloques del medio, usa todos los bytes
         return DISKIMG_SECTOR_SIZE;
+    } else{
+        return total_size % DISKIMG_SECTOR_SIZE; // Si es el ultimo bloque, no usa todos los bytes.
     }
 }
 
