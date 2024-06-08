@@ -9,7 +9,7 @@
  * TODO
  */
 int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *buf) {
-    struct inode *inp = malloc(sizeof(struct inode));
+    struct inode *inp = malloc(sizeof(struct inode)); // allocate memory for the inode
     if (inp == NULL) {
         return -1;
     }
@@ -26,7 +26,7 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
         free(inp);
         return -1;
     }
-    int total_size = inode_getsize(inp);
+    int total_size = inode_getsize(inp); // get the total size of the file
     if (total_size <= 0) {
         free(inp);
         return -1;

@@ -15,7 +15,7 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
         return -1;
     }
     int blocks_per_sector = DISKIMG_SECTOR_SIZE / sizeof(struct inode); // 256
-    int real_inumber = inumber - 1; // real inumber (index starts from 0)
+    int real_inumber = inumber - 1; // real inumber starts from 0
     int sectorNum = INODE_START_SECTOR + real_inumber / blocks_per_sector; 
     if (diskimg_readsector(fs->dfd, sectorNum, buff) == -1) { // read the sector where the inode is
         free(buff);
@@ -48,17 +48,17 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
         return -1;
     }
     if (blockNum < first_indir_limit) { // if the blockNum is less than 1792, it is a first level of indirection
-        int indir_index = blockNum / blocks_per_sector; // index of the indirect block
+        int first_indir_index = blockNum / blocks_per_sector; // index of the indirect block
         int offset = blockNum % blocks_per_sector; // offset in the indirect block
-        if (diskimg_readsector(fs->dfd, inp->i_addr[indir_index], buffer_1) == -1) {
+        if (diskimg_readsector(fs->dfd, inp->i_addr[first_indir_index], buffer_1) == -1) {
             free(buffer_1);
             return -1; 
         }
-        int block_number = ((uint16_t *)buffer_1)[offset];
+        int block_number = ((uint16_t *)buffer_1)[offset]; // get the block number from the indirect block
         free(buffer_1);
         return block_number;
     } else { // if the blockNum is greater than 1792, it is a second level of indirection
-        if (diskimg_readsector(fs->dfd, inp->i_addr[7], buffer_1) == -1) { // read the 8th block (first level indirect block)
+        if (diskimg_readsector(fs->dfd, inp->i_addr[7], buffer_1) == -1) { // read the 8th block 
             free(buffer_1);
             return -1; 
         }
@@ -73,8 +73,8 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
             free(buffer_2);
             return -1; 
         }
-        int offset = (blockNum - first_indir_limit) % blocks_per_sector; // offset in the second level indirect block
-        int block_number = ((uint16_t *)buffer_2)[offset]; // get the block number
+        int offset = (blockNum - first_indir_limit) % blocks_per_sector; 
+        int block_number = ((uint16_t *)buffer_2)[offset]; // get the block number from the second level indirect block
         free(buffer_1);
         free(buffer_2);
         return block_number;

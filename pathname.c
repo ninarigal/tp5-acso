@@ -12,7 +12,7 @@
  * TODO
  */
 int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
-    char *pathname_ = strdup(pathname); 
+    char *pathname_ = strdup(pathname); // make a copy of the pathname
     if (pathname_ == NULL) {
         return -1;
     }
@@ -24,7 +24,7 @@ int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
         return -1;
     }
     while (directory != NULL) { // while there are directories to read
-        if (directory_findname(fs, directory, inumber, dirent) == -1) {
+        if (directory_findname(fs, directory, inumber, dirent) == -1) { // find the directory
             free(pathname_);
             free(dirent);
             return -1;

@@ -11,7 +11,7 @@
  * TODO
  */
 int directory_findname(struct unixfilesystem *fs, const char *name, int dirinumber, struct direntv6 *dirEnt) {  
-  struct inode* inp = malloc(sizeof(struct inode));
+  struct inode* inp = malloc(sizeof(struct inode)); // allocate memory for the inode
   if (inp == NULL) {
     return -1;
   }
@@ -24,7 +24,7 @@ int directory_findname(struct unixfilesystem *fs, const char *name, int dirinumb
     free(inp);
     return -1;
   }
-  int total_size = inode_getsize(inp);
+  int total_size = inode_getsize(inp); // get the total size of the directory
   if(total_size <= 0) {
     free(inp);
     return -1;
@@ -34,7 +34,7 @@ int directory_findname(struct unixfilesystem *fs, const char *name, int dirinumb
   if (last_block != 0) {
     blocks++;
   }
-  int dirent_size = sizeof(struct direntv6);
+  int dirent_size = sizeof(struct direntv6); 
   void* buff = malloc(DISKIMG_SECTOR_SIZE);
   if (buff == NULL) {
     free(inp);
